@@ -1,0 +1,10 @@
+# Ignore rooms.json file
+rooms.json
+
+# Node.js dependencies (if applicable)
+node_modules/
+
+# Other typical ignores
+.DS_Store
+*.log
+.env
