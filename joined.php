@@ -26,7 +26,7 @@ if (isset($_POST['exit'])) {
                 echo "<h1>Room deleted. Host has left.</h1>";
             } else {
                 // Participant is leaving, remove them from the participants list
-                $rooms[$code]['participants'] = array_filter($rooms[$code]['participants'], function($participant) use ($nick) {
+                $rooms[$code]['participants'] = array_filter($rooms[$code]['participants'], function ($participant) use ($nick) {
                     return $participant !== $nick;
                 });
                 echo "<h1>You have left the room.</h1>";
@@ -97,7 +97,6 @@ if (isset($_SESSION['room_code'])) {
     // Save the room code and nickname to the session for future page loads
     $_SESSION['room_code'] = $code;
     $_SESSION['nickname'] = $nick;
-
 } else {
     echo "No data received.";
     exit;
@@ -106,49 +105,51 @@ if (isset($_SESSION['room_code'])) {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <title>OST - Joined Room</title>
     <style>
-
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@100;400&display=swap');
 
         body {
-            font-family: Arial, sans-serif;
+            font-family: "Lato", sans-serif;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #000; /* Dark background for contrast */
-            color: #fff; /* Light text color for readability */
+            background-color: #000;
+            color: #fff;
             text-align: center;
-            font-family: "Lato", sans-serif;
             font-weight: 400;
             font-style: normal;
         }
 
         #table {
-            width: 80vmin;
-            height: 80vmin;
-            background-color: #4caf50; /* Poker table green */
-            border-radius: 50%; /* Circular table */
-            position: relative; /* Position for inner elements */
+            width: 50vw;
+            /* 50% of viewport width */
+            height: 28vw;
+            /* Adjusts height relative to width */
+            background-color: #4caf50;
+            border-radius: 50%;
+            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 20px; /* Add margin for spacing */
+            /* 5% of viewport height */
         }
 
         #deck {
-            width: 20vmin; /* Central deck size */
-            height: 20vmin;
-            background-color: #444; /* Darker background for deck */
-            color: #fff; /* Light text color for deck */
-            border: 2px solid #007bff;
-            border-radius: 10px; /* Rounded edges for deck */
+            width: 9vw;
+            height: 9vw;
+            background-color: #444;
+            color: #fff;
+            border: 0.2vw solid #007bff;
+            border-radius: 1vw;
             position: absolute;
             display: flex;
             justify-content: center;
@@ -157,91 +158,145 @@ if (isset($_SESSION['room_code'])) {
 
         .player {
             position: absolute;
-            width: 20vmin;
-            height: 20vmin;
-            background-color: #222; /* Darker player area background */
-            color: #fff; /* Light text color for players */
-            border: 1px solid #444; /* Dark border for players */
-            border-radius: 5px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
+            width: 18vw;
+            height: 9vw;
+            background-color: #222;
+            color: #fff;
+            border: 0.1vw solid #444;
+            border-radius: 0.5vw;
         }
 
-        /* Positions for players around the table */
-        .player1 { top: 5%; left: 50%; transform: translate(-50%, -50%); }
-        .player2 { top: 50%; left: 95%; transform: translate(-50%, -50%); }
-        .player3 { bottom: 5%; left: 50%; transform: translate(-50%, 50%); }
-        .player4 { top: 50%; left: 5%; transform: translate(-50%, -50%); }
-        
+        .player1 {
+            top: 4%;
+            left: 50%;
+            transform: translate(-50%, -90%);
+        }
+
+        .player2 {
+            top: 50%;
+            left: 95%;
+            transform: translate(-5%, -50%);
+        }
+
+        .player3 {
+            bottom: 4%;
+            left: 50%;
+            transform: translate(-50%, 90%);
+        }
+
+        .player4 {
+            top: 50%;
+            left: 5%;
+            transform: translate(-95%, -50%);
+        }
+
         .nickname {
+            padding-top: 15px;
             font-weight: bold;
+            height: 1.8vw;
+        }
+
+        .card {
+            height: 5vw;
+            width: 3.23vw;
+        }
+        .card:hover {
+            outline: 2px solid yellow;
+        }
+
+        #infos {
+            position: absolute;
+            top: 0;
+            left: 2vw;
         }
     </style>
 </head>
+
 <body>
 
-<div>
-    <h1>Welcome <?php echo htmlspecialchars($nick); ?>!</h1>
-    <p>You're in room code: <?php echo htmlspecialchars($code); ?></p>
+    <div id='infos'>
+        <h1>Welcome <?php echo htmlspecialchars($nick); ?>!</h1>
+        <p>You're in room code: <?php echo htmlspecialchars($code); ?></p>
 
-    <form method="POST" action="joined.php">
-        <button type="submit" name="exit">Exit Room</button>
-    </form>
-</div>
+        <form method="POST" action="joined.php">
+            <button type="submit" name="exit">Exit Room</button>
+        </form>
+    </div>
 
-<div id="table">
-    <div id="deck">Deck</div>
+    <div id="table">
+        <div id="deck"><img src="back.svg" alt="Card Back" class='card'></div>
 
-    <!-- Player Positions -->
-    <div class="player player1">
-        <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][0] ?? ''); ?></div>
-        <div class="participantSquare">Participant Actions</div>
+        <!-- Player Positions -->
+        <div class="player player1">
+            <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][0] ?? ''); ?></div>
+            <div class="participantSquare">
+                <img src="k.svg" alt="Card Back" class='card'>
+                <img src="q.svg" alt="Card Back" class='card'>
+                <img src="joker.svg" alt="Card Back" class='card'>
+                <img src="a.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+            </div>
+        </div>
+        <div class="player player2">
+            <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][1] ?? ''); ?></div>
+            <div class="participantSquare">
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+            </div>
+        </div>
+        <div class="player player3">
+            <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][2] ?? ''); ?></div>
+            <div class="participantSquare">
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+            </div>
+        </div>
+        <div class="player player4">
+            <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][3] ?? ''); ?></div>
+            <div class="participantSquare">
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+                <img src="back.svg" alt="Card Back" class='card'>
+            </div>
+        </div>
     </div>
-    <div class="player player2">
-        <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][1] ?? ''); ?></div>
-        <div class="participantSquare">Participant Actions</div>
-    </div>
-    <div class="player player3">
-        <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][2] ?? ''); ?></div>
-        <div class="participantSquare">Participant Actions</div>
-    </div>
-    <div class="player player4">
-        <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][3] ?? ''); ?></div>
-        <div class="participantSquare">Participant Actions</div>
-    </div>
-</div>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-// Function to check room status and participants every 4 seconds
-function checkRoomStatus() {
-    $.ajax({
-        url: 'check_room.php',
-        method: 'GET',
-        success: function(response) {
-            if (response.exists) {
-                // Update the squares with new data
-                response.participants.forEach(function(participant, index) {
-                    if (index < 4) { // Update the first four participants
-                        $('.nickname').eq(index).text(participant);
+    <script>
+        // Function to check room status and participants every 4 seconds
+        function checkRoomStatus() {
+            $.ajax({
+                url: 'check_room.php',
+                method: 'GET',
+                success: function(response) {
+                    if (response.exists) {
+                        // Update the squares with new data
+                        response.participants.forEach(function(participant, index) {
+                            if (index < 4) { // Update the first four participants
+                                $('.nickname').eq(index).text(participant);
+                            }
+                        });
+                    } else {
+                        // Handle room not existing (e.g., redirect or show message)
+                        alert("Room no longer exists.");
+                        window.location.href = 'index.php'; // Redirect to the index page
                     }
-                });
-            } else {
-                // Handle room not existing (e.g., redirect or show message)
-                alert("Room no longer exists.");
-                window.location.href = 'index.php'; // Redirect to the index page
-            }
-        },
-        error: function() {
-            console.error("Error checking room status.");
+                },
+                error: function() {
+                    console.error("Error checking room status.");
+                }
+            });
         }
-    });
-}
 
-// Check room status every 4 seconds
-setInterval(checkRoomStatus, 4000);
-</script>
+        // Check room status every 4 seconds
+        setInterval(checkRoomStatus, 4000);
+    </script>
 </body>
+
 </html>

@@ -1,0 +1,13 @@
+<svg width="200" height="300" viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background of the card -->
+  <rect width="200" height="300" fill="white" stroke="black" stroke-width="5" rx="15" ry="15"/>
+
+  <!-- Upper-left "Q" -->
+  <text x="10" y="40" font-family="Arial" font-size="40" fill="black">Q</text>
+
+  <!-- Upside-down "Q" at the bottom-right corner (moved up) -->
+  <text x="170" y="265" font-family="Arial" font-size="40" fill="black" transform="rotate(180 180,260)">Q</text>
+
+  <!-- Center "Q" -->
+  <text x="100" y="185" font-family="Arial" font-size="100" fill="black" text-anchor="middle">Q</text>
+</svg>
