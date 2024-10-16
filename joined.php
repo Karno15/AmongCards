@@ -1,106 +1,79 @@
 <?php
-session_start(); // Start the session to store/retrieve session data
+session_start();
 
-// Path to the rooms JSON file
 $roomsFile = 'rooms.json';
+$rooms = file_exists($roomsFile) ? json_decode(file_get_contents($roomsFile), true) ?? [] : [];
 
-// Initialize rooms list (or load it from the file if it exists)
-$rooms = [];
-if (file_exists($roomsFile)) {
-    $rooms = json_decode(file_get_contents($roomsFile), true) ?? [];
-}
-
-// Check if the user clicked the "Exit" button to leave the room
-if (isset($_POST['exit'])) {
-    // Check if session data exists to identify the room and user
-    if (isset($_SESSION['room_code']) && isset($_SESSION['nickname'])) {
-        $code = $_SESSION['room_code'];
-        $nick = $_SESSION['nickname'];
-
-        // Check if the room exists
-        if (isset($rooms[$code])) {
-            // Check if the user is the host
-            if ($rooms[$code]['host'] === $nick) {
-                // Host is leaving, delete the entire room
-                unset($rooms[$code]);
-                echo "<h1>Room deleted. Host has left.</h1>";
-            } else {
-                // Participant is leaving, remove them from the participants list
-                $rooms[$code]['participants'] = array_filter($rooms[$code]['participants'], function ($participant) use ($nick) {
-                    return $participant !== $nick;
-                });
-                echo "<h1>You have left the room.</h1>";
-            }
-
-            // Save the updated room data back to the JSON file
-            file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
-        }
-    }
-
-    // Clear the session and destroy it
-    session_unset(); // Clear all session variables
-    session_destroy(); // Destroy the session
-
-    // Redirect to the index page
-    header("Location: index.php");
-    exit;
-}
-
-// Check if session already has room data
-if (isset($_SESSION['room_code'])) {
-    // If session exists, retrieve the room code and nickname from the session
+if (isset($_POST['exit']) && isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     $code = $_SESSION['room_code'];
     $nick = $_SESSION['nickname'];
 
-    // Verify that the room exists
+    if (isset($rooms[$code])) {
+        if ($rooms[$code]['host'] === $nick) {
+            unset($rooms[$code]);
+            $info = "Host has left the room. Room closed.";
+        } else {
+            $rooms[$code]['participants'] = array_filter($rooms[$code]['participants'], fn($participant) => $participant !== $nick);
+            $info = "You have left the room.";
+        }
+        file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
+    }
+    session_unset();
+    session_destroy();
+    header("Location: index.php?info=" . $info);
+    exit;
+}
+
+if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
+    $code = $_SESSION['room_code'];
+    $nick = $_SESSION['nickname'];
+
     if (!isset($rooms[$code])) {
-        // If the room doesn't exist (e.g., was deleted), clear the session and show an error
-        session_unset(); // Clear all session variables
-        session_destroy(); // Destroy the session
-        echo "<h1>Error: Room does not exist</h1>";
+        session_unset();
+        session_destroy();
+        $info = "Room does not exist";
+        header("Location: index.php?info=" . $info);
         exit;
     }
-} else if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Get the nickname, code, and host flag from the POST request
-    $nick = isset($_POST['nick']) ? htmlspecialchars($_POST['nick']) : '';
-    $code = isset($_POST['code']) ? htmlspecialchars($_POST['code']) : '';
-    $host = isset($_POST['host']) ? htmlspecialchars($_POST['host']) : '';
+} elseif ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $nick = htmlspecialchars($_POST['nick'] ?? '');
+    $code = htmlspecialchars($_POST['code'] ?? '');
+    $host = htmlspecialchars($_POST['host'] ?? '');
 
     if ($host == '1') {
-        // Host a new room
-        if (!isset($rooms[$code])) {
-            // If the room doesn't exist, create a new room with the host's nickname
-            $rooms[$code] = [
-                'host' => $nick,
-                'participants' => [$nick], // Add the host to the participants list
-            ];
-        } else {
-            echo "<h1>Error: Room already exists</h1>";
-        }
-    } else if ($host == '0') {
-        // Join an existing room
         if (isset($rooms[$code])) {
-            // Add the participant's nickname to the room if it exists
+            $info = "Room already exists";
+            header("Location: index.php?info=" . $info);
+            exit;
+        } else {
+            $rooms[$code] = ['host' => $nick, 'participants' => [$nick]];
+        }
+    }
+    elseif ($host == '0') {
+        if (!isset($rooms[$code])) {
+            $info = "Room doesn't exist";
+            session_unset();
+            session_destroy();
+            header("Location: index.php?info=" . $info);
+            exit;
+        } else {
             if (!in_array($nick, $rooms[$code]['participants'])) {
                 $rooms[$code]['participants'][] = $nick;
             } else {
                 echo "<h1>Error: You have already joined this room.</h1>";
             }
-        } else {
-            echo "<h1>Error: Room does not exist</h1>";
         }
     }
 
-    // Save the room data to the JSON file
     file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
 
-    // Save the room code and nickname to the session for future page loads
     $_SESSION['room_code'] = $code;
     $_SESSION['nickname'] = $nick;
 } else {
     echo "No data received.";
     exit;
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -131,16 +104,13 @@ if (isset($_SESSION['room_code'])) {
 
         #table {
             width: 50vw;
-            /* 50% of viewport width */
             height: 28vw;
-            /* Adjusts height relative to width */
             background-color: #4caf50;
             border-radius: 50%;
             position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
-            /* 5% of viewport height */
         }
 
         #deck {
@@ -200,6 +170,7 @@ if (isset($_SESSION['room_code'])) {
             height: 5vw;
             width: 3.23vw;
         }
+
         .card:hover {
             outline: 2px solid yellow;
         }
@@ -213,15 +184,15 @@ if (isset($_SESSION['room_code'])) {
 </head>
 
 <body>
-
-    <div id='infos'>
+    <div id="infos">
         <h1>Welcome <?php echo htmlspecialchars($nick); ?>!</h1>
         <p>You're in room code: <?php echo htmlspecialchars($code); ?></p>
-
+        <p>Sessions: <?php echo htmlspecialchars($_SESSION['room_code'] ?? '') . '<br>' . htmlspecialchars($_SESSION['nickname'] ?? ''); ?></p>
         <form method="POST" action="joined.php">
             <button type="submit" name="exit">Exit Room</button>
         </form>
     </div>
+
 
     <div id="table">
         <div id="deck"><img src="back.svg" alt="Card Back" class='card'></div>
@@ -268,33 +239,23 @@ if (isset($_SESSION['room_code'])) {
             </div>
         </div>
     </div>
+
     <script>
-        // Function to check room status and participants every 4 seconds
         function checkRoomStatus() {
-            $.ajax({
-                url: 'check_room.php',
-                method: 'GET',
-                success: function(response) {
-                    if (response.exists) {
-                        // Update the squares with new data
-                        response.participants.forEach(function(participant, index) {
-                            if (index < 4) { // Update the first four participants
-                                $('.nickname').eq(index).text(participant);
-                            }
-                        });
-                    } else {
-                        // Handle room not existing (e.g., redirect or show message)
-                        alert("Room no longer exists.");
-                        window.location.href = 'index.php'; // Redirect to the index page
-                    }
-                },
-                error: function() {
-                    console.error("Error checking room status.");
+            $.get('check_room.php', function(response) {
+                if (response.exists) {
+                    response.participants.forEach(function(participant, index) {
+                        if (index < 4) $('.nickname').eq(index).text(participant);
+                    });
+                } else {
+                    window.location.href = 'index.php';
                 }
+            }).fail(function() {
+                console.error("Error checking room status.");
             });
         }
 
-        // Check room status every 4 seconds
+        checkRoomStatus();
         setInterval(checkRoomStatus, 4000);
     </script>
 </body>

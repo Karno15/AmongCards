@@ -1,3 +1,15 @@
+<?php
+session_start();
+
+if (isset($_SESSION['room_code'])) {
+    header('Location:joined.php');
+}
+
+$info = isset($_GET['info']) ? $_GET['info'] : '';
+
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -19,7 +31,7 @@
         }
 
         div {
-            outline: 1px solid black;
+            outline: 1px solid white;
         }
 
         #main {
@@ -42,12 +54,41 @@
             padding: 50px;
             margin: 20px;
         }
+
+        #info {
+            width: 300px;
+            height: 40px;
+            line-height: 40px;
+            background-color: white;
+            color: black;
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, 0);
+        }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 </head>
 
 <body>
+
+    <script>
+        $(document).ready(function() {
+            var infoContent = $('#info').text().trim();
+
+            if (infoContent === '') {
+                $('#info').prop('disabled', true);
+            } else {
+                $('#info').prop('disabled', false).show();
+                setTimeout(function() {
+                    $('#info').fadeOut();
+                }, 3000);
+            }
+        });
+    </script>
+
+    <div id="info"><?php echo htmlspecialchars($info); ?></div>
+
     <h1>Ost</h1>
     <div id="main">
         <div id="joinContainer">
