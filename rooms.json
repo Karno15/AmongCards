@@ -1,0 +1,12 @@
+{
+    "1234": {
+        "host": "aaa",
+        "participants": [
+            "aaa",
+            "bbbb",
+            "test1",
+            "qweqwe"
+        ],
+        "drawn": false
+    }
+}

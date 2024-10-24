@@ -48,8 +48,7 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
         } else {
             $rooms[$code] = ['host' => $nick, 'participants' => [$nick]];
         }
-    }
-    elseif ($host == '0') {
+    } elseif ($host == '0') {
         if (!isset($rooms[$code])) {
             $info = "Room doesn't exist";
             session_unset();
@@ -187,12 +186,16 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     <div id="infos">
         <h1>Welcome <?php echo htmlspecialchars($nick); ?>!</h1>
         <p>You're in room code: <?php echo htmlspecialchars($code); ?></p>
+        <p id="host-display">Host: <?php echo htmlspecialchars($rooms[$code]['host']); ?></p>
         <p>Sessions: <?php echo htmlspecialchars($_SESSION['room_code'] ?? '') . '<br>' . htmlspecialchars($_SESSION['nickname'] ?? ''); ?></p>
         <form method="POST" action="joined.php">
             <button type="submit" name="exit">Exit Room</button>
-        </form>
-    </div>
 
+        </form>
+        <button id="drawCards">Draw Cards</button>
+        <button id="resetGame">Reset Game</button>
+
+    </div>
 
     <div id="table">
         <div id="deck"><img src="back.svg" alt="Card Back" class='card'></div>
@@ -200,64 +203,181 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
         <!-- Player Positions -->
         <div class="player player1">
             <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][0] ?? ''); ?></div>
-            <div class="participantSquare">
-                <img src="k.svg" alt="Card Back" class='card'>
-                <img src="q.svg" alt="Card Back" class='card'>
-                <img src="joker.svg" alt="Card Back" class='card'>
-                <img src="a.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-            </div>
+            <div class="participantSquare"></div>
         </div>
         <div class="player player2">
             <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][1] ?? ''); ?></div>
-            <div class="participantSquare">
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-            </div>
+            <div class="participantSquare"></div>
         </div>
         <div class="player player3">
             <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][2] ?? ''); ?></div>
-            <div class="participantSquare">
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-            </div>
+            <div class="participantSquare"></div>
         </div>
         <div class="player player4">
             <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][3] ?? ''); ?></div>
-            <div class="participantSquare">
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-                <img src="back.svg" alt="Card Back" class='card'>
-            </div>
+            <div class="participantSquare"></div>
         </div>
     </div>
 
-    <script>
-        function checkRoomStatus() {
-            $.get('check_room.php', function(response) {
-                if (response.exists) {
-                    response.participants.forEach(function(participant, index) {
-                        if (index < 4) $('.nickname').eq(index).text(participant);
-                    });
-                } else {
-                    window.location.href = 'index.php';
-                }
-            }).fail(function() {
-                console.error("Error checking room status.");
-            });
-        }
+    <!-- Button to Draw Cards -->
 
-        checkRoomStatus();
-        setInterval(checkRoomStatus, 4000);
+    <script>
+        $(document).ready(function() {
+            function checkRoomStatus() {
+                $.get('check_room.php', function(response) {
+                    if (response.exists) {
+                        $('#host-display').text(response.host);
+                        const currentParticipants = response.participants;
+                        $('.nickname').each(function(index) {
+                            if (index < currentParticipants.length) {
+                                $(this).text(currentParticipants[index]);
+                            } else {
+                                $(this).text('');
+                            }
+                        });
+
+                        // If cards have already been drawn, load them immediately
+                        if (response.drawn) {
+                            loadInitialCards();
+                        } else {
+                            clearAllBoards();
+                        }
+                    } else {
+                        window.location.href = 'index.php';
+                    }
+                }).fail(function() {
+                    console.error("Error checking room status.");
+                });
+            }
+
+
+            function clearAllBoards() {
+                $('.participantSquare').empty(); // Clear all squares for all participants
+            }
+
+            // Draw cards on button click
+            $('#drawCards').click(function() {
+                $.post('draw_cards.php', {}, function(data) {
+                    // Clear participant squares before displaying new cards
+                    $('.participantSquare').empty();
+
+                    // Check if there's an error in the response
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Store the current user's nickname
+
+                    // Iterate over participants to display drawn cards
+                    $.each(data.participants, function(participant, cards) {
+                        let playerPosition = 0; // Track the player position
+
+                        // Find the index of the current participant for displaying their cards
+                        $('.nickname').each(function(index) {
+                            if (participant === $(this).text().trim()) {
+                                playerPosition = index; // Store the player position
+                            }
+                        });
+
+                        // Add the cards for the participant
+                        if (participant === currentUser) {
+                            $.each(cards, function(i, card) {
+                                const cardImage = $('<img>', {
+                                    src: card,
+                                    alt: 'Card',
+                                    class: 'card'
+                                });
+                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardImage); // Show actual cards for current user
+                            });
+                        } else {
+                            // Show the back of the card for others
+                            for (let i = 0; i < 5; i++) {
+                                const cardBack = $('<img>', {
+                                    src: 'back.svg',
+                                    alt: 'Card Back',
+                                    class: 'card'
+                                });
+                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardBack);
+                            }
+                        }
+                    });
+                }, 'json');
+            });
+
+            // Function to load cards if they have already been drawn
+            function loadInitialCards() {
+                $.post('draw_cards.php', {}, function(data) {
+                    // Clear participant squares before displaying new cards
+                    $('.participantSquare').empty();
+
+                    // Check if there's an error in the response
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Store the current user's nickname
+
+                    // Iterate over participants to display drawn cards
+                    $.each(data.participants, function(participant, cards) {
+                        let playerPosition = 0; // Track the player position
+
+                        // Find the index of the current participant for displaying their cards
+                        $('.nickname').each(function(index) {
+                            if (participant === $(this).text().trim()) {
+                                playerPosition = index; // Store the player position
+                            }
+                        });
+
+                        // Add the cards for the participant
+                        if (participant === currentUser) {
+                            $.each(cards, function(i, card) {
+                                const cardImage = $('<img>', {
+                                    src: card,
+                                    alt: 'Card',
+                                    class: 'card'
+                                });
+                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardImage); // Show actual cards for current user
+                            });
+                        } else {
+                            // Show the back of the card for others
+                            for (let i = 0; i < 5; i++) {
+                                const cardBack = $('<img>', {
+                                    src: 'back.svg',
+                                    alt: 'Card Back',
+                                    class: 'card'
+                                });
+                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardBack);
+                            }
+                        }
+                    });
+                }, 'json');
+            }
+
+            // Reset game on button click
+            $('#resetGame').click(function() {
+                if (confirm("Are you sure you want to reset the game? This will delete all drawn cards.")) {
+                    $.post('reset_game.php', {}, function(response) {
+                        if (response.success) {
+                            alert("Game has been reset.");
+                            // Reload the room status
+                            checkRoomStatus();
+                        } else {
+                            alert("Error resetting the game: " + response.error);
+                        }
+                    }, 'json').fail(function() {
+                        alert("Error communicating with the server.");
+                    });
+                }
+            });
+
+            // Check room status initially and every 4 seconds
+            checkRoomStatus();
+            setInterval(checkRoomStatus, 4000);
+        });
     </script>
+
 </body>
 
 </html>

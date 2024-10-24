@@ -1,13 +1,13 @@
 <?php
 session_start();
 
+// Redirect to joined.php if the session has a room_code
 if (isset($_SESSION['room_code'])) {
     header('Location:joined.php');
 }
 
+// Retrieve 'info' from the query string, or default to an empty string if not set
 $info = isset($_GET['info']) ? $_GET['info'] : '';
-
-
 ?>
 
 <!DOCTYPE html>
@@ -77,17 +77,23 @@ $info = isset($_GET['info']) ? $_GET['info'] : '';
             var infoContent = $('#info').text().trim();
 
             if (infoContent === '') {
-                $('#info').prop('disabled', true);
+                $('#info').hide();
             } else {
-                $('#info').prop('disabled', false).show();
+                $('#info').show();
                 setTimeout(function() {
                     $('#info').fadeOut();
                 }, 3000);
+
+                const url = new URL(window.location.href);
+                url.searchParams.delete('info');
+                window.history.replaceState({}, document.title, url.toString());
             }
         });
     </script>
 
-    <div id="info"><?php echo htmlspecialchars($info); ?></div>
+    <?php if (!empty($info)) : ?>
+        <div id="info"><?php echo htmlspecialchars($info); ?></div>
+    <?php endif; ?>
 
     <h1>Ost</h1>
     <div id="main">
