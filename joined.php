@@ -179,27 +179,52 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             top: 0;
             left: 2vw;
         }
+
+        #table-status {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-weight: bold;
+            z-index: 10;
+            font-size: 20pt;
+        }
+
+        #messages {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-weight: bold;
+            z-index: 10;
+        }
     </style>
 </head>
 
 <body>
     <div id="infos">
-        <h1>Welcome <?php echo htmlspecialchars($nick); ?>!</h1>
         <p>You're in room code: <?php echo htmlspecialchars($code); ?></p>
-        <p id="host-display">Host: <?php echo htmlspecialchars($rooms[$code]['host']); ?></p>
-        <p>Sessions: <?php echo htmlspecialchars($_SESSION['room_code'] ?? '') . '<br>' . htmlspecialchars($_SESSION['nickname'] ?? ''); ?></p>
+
         <form method="POST" action="joined.php">
             <button type="submit" name="exit">Exit Room</button>
 
         </form>
-        <button id="drawCards">Draw Cards</button>
-        <button id="resetGame">Reset Game</button>
-
+        <?php if ($_SESSION['nickname'] === $rooms[$code]['host']): ?>
+            <button id="drawCards">Draw Cards</button>
+            <button id="resetGame">Reset Game</button>
+        <?php endif; ?>
     </div>
 
+
     <div id="table">
+
         <div id="deck"><img src="back.svg" alt="Card Back" class='card'></div>
 
+
+        <p id="table-status">Table: <span id="table-value"></span></p>
+        <h2 id="messages">Info will be shown here.</h2>
         <!-- Player Positions -->
         <div class="player player1">
             <div class="nickname"><?php echo htmlspecialchars($rooms[$code]['participants'][0] ?? ''); ?></div>
@@ -252,20 +277,28 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
 
 
             function clearAllBoards() {
-                $('.participantSquare').empty(); // Clear all squares for all participants
+                $('.participantSquare').empty();
+                $('#messages').empty();
             }
 
             // Draw cards on button click
             $('#drawCards').click(function() {
                 $.post('draw_cards.php', {}, function(data) {
-                    // Clear participant squares before displaying new cards
-                    $('.participantSquare').empty();
+                    clearAllBoards();
 
                     // Check if there's an error in the response
                     if (data.error) {
                         alert(data.error);
                         return;
                     }
+
+                    // Display the random "table" value
+                    $('#table-value').text(data.table);
+
+                    setTimeout(function() {
+                        $('#messages').text(data.message);
+                    }, 4000);
+
 
                     const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Store the current user's nickname
 
@@ -284,7 +317,7 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         if (participant === currentUser) {
                             $.each(cards, function(i, card) {
                                 const cardImage = $('<img>', {
-                                    src: card,
+                                    src: card + ".svg",
                                     alt: 'Card',
                                     class: 'card'
                                 });
@@ -317,6 +350,11 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         return;
                     }
 
+                    $('#table-value').text(data.table);
+                    setTimeout(function() {
+                        $('#messages').text(data.message);
+                    }, 4000);
+
                     const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Store the current user's nickname
 
                     // Iterate over participants to display drawn cards
@@ -334,7 +372,7 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         if (participant === currentUser) {
                             $.each(cards, function(i, card) {
                                 const cardImage = $('<img>', {
-                                    src: card,
+                                    src: card + '.svg',
                                     alt: 'Card',
                                     class: 'card'
                                 });
@@ -362,6 +400,9 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         if (response.success) {
                             alert("Game has been reset.");
                             // Reload the room status
+                            $('#table-value').text("");
+
+                            $('#messages').text("");
                             checkRoomStatus();
                         } else {
                             alert("Error resetting the game: " + response.error);

@@ -1,12 +1,29 @@
 {
-    "1234": {
-        "host": "aaa",
+    "1122": {
+        "host": "vsdfs",
         "participants": [
-            "aaa",
-            "bbbb",
-            "test1",
-            "qweqwe"
+            "vsdfs",
+            "sdf"
         ],
-        "drawn": false
+        "drawn": true,
+        "table": "a",
+        "current_turn": "sdf",
+        "message": "It's sdf's turn.",
+        "cards": {
+            "vsdfs": [
+                "k",
+                "joker",
+                "a",
+                "q",
+                "q"
+            ],
+            "sdf": [
+                "k",
+                "a",
+                "a",
+                "k",
+                "k"
+            ]
+        }
     }
 }

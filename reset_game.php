@@ -2,11 +2,13 @@
 session_start();
 
 $roomsFile = 'rooms.json';
+$rooms = json_decode(file_get_contents($roomsFile), true);
+$code = $_SESSION['room_code'];
+$nick = $_SESSION['nickname'];
 
-if (file_exists($roomsFile)) {
-    $rooms = json_decode(file_get_contents($roomsFile), true);
-} else {
-    $rooms = [];
+if ($rooms[$code]['host'] !== $nick) {
+    echo json_encode(['error' => 'Only the host can reset the game.']);
+    exit;
 }
 
 if (isset($_SESSION['room_code'])) {
@@ -22,7 +24,7 @@ if (isset($_SESSION['room_code'])) {
 
         // Save the updated rooms data back to the file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
-
+        $_SESSION['table'] = '';
         $response = [
             'success' => true,
             'message' => 'Game reset successfully.',
