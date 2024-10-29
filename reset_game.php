@@ -21,7 +21,9 @@ if (isset($_SESSION['room_code'])) {
         
         // Set drawn to false
         $rooms[$code]['drawn'] = false;
-
+        $rooms[$code]['message'] = '';
+        $rooms[$code]['current_turn'] = '';
+        $rooms[$code]['table'] = '';
         // Save the updated rooms data back to the file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
         $_SESSION['table'] = '';

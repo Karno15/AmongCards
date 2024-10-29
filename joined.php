@@ -4,26 +4,36 @@ session_start();
 $roomsFile = 'rooms.json';
 $rooms = file_exists($roomsFile) ? json_decode(file_get_contents($roomsFile), true) ?? [] : [];
 
+// Check if the user has requested to exit and is in a session
 if (isset($_POST['exit']) && isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     $code = $_SESSION['room_code'];
     $nick = $_SESSION['nickname'];
 
     if (isset($rooms[$code])) {
+        // If the user is the host, remove the entire room
         if ($rooms[$code]['host'] === $nick) {
             unset($rooms[$code]);
             $info = "Host has left the room. Room closed.";
         } else {
+            // Remove the user from the participants list
             $rooms[$code]['participants'] = array_filter($rooms[$code]['participants'], fn($participant) => $participant !== $nick);
+            // Also remove the user's cards if they exist
+            unset($rooms[$code]['cards'][$nick]);
             $info = "You have left the room.";
         }
+
+        // Save the updated room data to the file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
     }
+    
+    // Clear the session for the user who exited
     session_unset();
     session_destroy();
-    header("Location: index.php?info=" . $info);
+    
+    // Redirect back to the main page with an informational message
+    header("Location: index.php?info=" . urlencode($info)); // Use urlencode to safely pass the message
     exit;
 }
-
 if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     $code = $_SESSION['room_code'];
     $nick = $_SESSION['nickname'];
@@ -200,6 +210,11 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             font-weight: bold;
             z-index: 10;
         }
+
+        .highlight {
+            border: 2px solid yellow;
+            box-shadow: 0 0 10px yellow;
+        }
     </style>
 </head>
 
@@ -245,13 +260,25 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     </div>
 
     <!-- Button to Draw Cards -->
-
     <script>
         $(document).ready(function() {
+            let currentTurnNumber = 0;
+
+            // Store previous state for comparison
+            let previousState = {
+                current_turn: null,
+                message: '',
+                cards: {},
+                participants: [],
+                table_cards: [], // Track table cards
+                table_status: '' // Track table status
+            };
+
             function checkRoomStatus() {
                 $.get('check_room.php', function(response) {
                     if (response.exists) {
                         $('#host-display').text(response.host);
+
                         const currentParticipants = response.participants;
                         $('.nickname').each(function(index) {
                             if (index < currentParticipants.length) {
@@ -261,11 +288,44 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                             }
                         });
 
-                        // If cards have already been drawn, load them immediately
-                        if (response.drawn) {
-                            loadInitialCards();
-                        } else {
-                            clearAllBoards();
+                        // Compare current state with previous state
+                        const hasTurnChanged = previousState.current_turn !== response.current_turn;
+                        const hasMessageChanged = previousState.message !== response.message;
+                        const hasCardsChanged = JSON.stringify(previousState.cards) !== JSON.stringify(response.cards);
+                        const hasTableStatusChanged = previousState.table_status !== response.table; // Corrected line for table status
+
+                        // Update current turn, message, and table status if they have changed
+                        if (hasTurnChanged || hasMessageChanged || hasCardsChanged || hasTableStatusChanged) {
+                            if (hasTurnChanged) {
+                                previousState.current_turn = response.current_turn;
+
+                                if (response.current_turn) {
+                                    highlightCurrentTurn(response.current_turn); // Highlight the current player
+                                } else {
+                                    clearHighlights(); // Clear highlights if no current turn
+                                }
+                            }
+
+                            if (hasMessageChanged) {
+                                $('#messages').text(response.message);
+                                previousState.message = response.message; // Update previous state
+                            }
+
+                            // Update cards for all participants if they have changed
+                            if (hasCardsChanged) {
+                                // Clear previous cards
+                                clearAllCards();
+
+                                // Update the participant cards
+                                updateParticipantCards(response.cards, response.current_turn);
+                                previousState.cards = response.cards; // Update previous state
+                            }
+
+                            // Update table status if it has changed
+                            if (hasTableStatusChanged) {
+                                updateTableStatus(response.table); // Use response.table to update the status
+                                previousState.table_status = response.table; // Update previous state
+                            }
                         }
                     } else {
                         window.location.href = 'index.php';
@@ -275,134 +335,101 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 });
             }
 
-
-            function clearAllBoards() {
-                $('.participantSquare').empty();
-                $('#messages').empty();
+            function clearAllCards() {
+                $('.participantSquare').empty(); // Clear all player cards
             }
 
-            // Draw cards on button click
+            function clearAllBoards() {
+                clearAllCards(); // Clear cards
+                $('#messages').empty(); // Clear messages
+                clearHighlights(); // Clear highlights
+            }
+
+            function clearHighlights() {
+                $('.player').removeClass('highlight'); // Clear all player highlights
+            }
+
+            function highlightCurrentTurn(currentTurn) {
+                clearHighlights(); // Clear previous highlights
+                if (currentTurn) {
+                    $('.player' + currentTurn).addClass('highlight'); // Highlight the current player based on the turn number
+                }
+            }
+
+            function updateParticipantCards(cards, currentTurn) {
+                const currentUser = '<?php echo htmlspecialchars($nick); ?>';
+
+                $.each(cards, function(participant, cardList) {
+                    let playerPosition = 0;
+                    $('.nickname').each(function(index) {
+                        if (participant === $(this).text().trim()) {
+                            playerPosition = index;
+                        }
+                    });
+
+                    // Clear previous cards for this player
+                    $('.player' + (playerPosition + 1) + ' .participantSquare').empty();
+
+                    if (participant === currentUser) {
+                        // Show actual cards for the current user
+                        $.each(cardList, function(i, card) {
+                            const cardImage = $('<img>', {
+                                src: card + ".svg",
+                                alt: 'Card',
+                                class: 'card'
+                            });
+                            $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardImage);
+                        });
+                    } else {
+                        // Show card backs for other participants
+                        for (let i = 0; i < cardList.length; i++) {
+                            const cardBack = $('<img>', {
+                                src: 'back.svg',
+                                alt: 'Card Back',
+                                class: 'card'
+                            });
+                            $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardBack);
+                        }
+                    }
+                });
+            }
+
+            // Function to update table status display
+            function updateTableStatus(tableStatus) {
+                const tableValueDisplay = $('#table-value'); // Update the table status
+                tableValueDisplay.text(tableStatus); // Set the text to the current table status (King, Ace, Queen)
+            }
             $('#drawCards').click(function() {
                 $.post('draw_cards.php', {}, function(data) {
                     clearAllBoards();
 
-                    // Check if there's an error in the response
                     if (data.error) {
                         alert(data.error);
                         return;
                     }
 
-                    // Display the random "table" value
                     $('#table-value').text(data.table);
-
-                    setTimeout(function() {
+                    if (data.message) {
                         $('#messages').text(data.message);
-                    }, 4000);
+                    }
 
+                    // Load cards for participants
+                    updateParticipantCards(data.cards, data.current_turn);
 
-                    const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Store the current user's nickname
-
-                    // Iterate over participants to display drawn cards
-                    $.each(data.participants, function(participant, cards) {
-                        let playerPosition = 0; // Track the player position
-
-                        // Find the index of the current participant for displaying their cards
-                        $('.nickname').each(function(index) {
-                            if (participant === $(this).text().trim()) {
-                                playerPosition = index; // Store the player position
-                            }
-                        });
-
-                        // Add the cards for the participant
-                        if (participant === currentUser) {
-                            $.each(cards, function(i, card) {
-                                const cardImage = $('<img>', {
-                                    src: card + ".svg",
-                                    alt: 'Card',
-                                    class: 'card'
-                                });
-                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardImage); // Show actual cards for current user
-                            });
-                        } else {
-                            // Show the back of the card for others
-                            for (let i = 0; i < 5; i++) {
-                                const cardBack = $('<img>', {
-                                    src: 'back.svg',
-                                    alt: 'Card Back',
-                                    class: 'card'
-                                });
-                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardBack);
-                            }
-                        }
-                    });
+                    // Highlight current turn
+                    currentTurnNumber = data.current_turn;
+                    highlightCurrentTurn();
                 }, 'json');
             });
 
-            // Function to load cards if they have already been drawn
-            function loadInitialCards() {
-                $.post('draw_cards.php', {}, function(data) {
-                    // Clear participant squares before displaying new cards
-                    $('.participantSquare').empty();
-
-                    // Check if there's an error in the response
-                    if (data.error) {
-                        alert(data.error);
-                        return;
-                    }
-
-                    $('#table-value').text(data.table);
-                    setTimeout(function() {
-                        $('#messages').text(data.message);
-                    }, 4000);
-
-                    const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Store the current user's nickname
-
-                    // Iterate over participants to display drawn cards
-                    $.each(data.participants, function(participant, cards) {
-                        let playerPosition = 0; // Track the player position
-
-                        // Find the index of the current participant for displaying their cards
-                        $('.nickname').each(function(index) {
-                            if (participant === $(this).text().trim()) {
-                                playerPosition = index; // Store the player position
-                            }
-                        });
-
-                        // Add the cards for the participant
-                        if (participant === currentUser) {
-                            $.each(cards, function(i, card) {
-                                const cardImage = $('<img>', {
-                                    src: card + '.svg',
-                                    alt: 'Card',
-                                    class: 'card'
-                                });
-                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardImage); // Show actual cards for current user
-                            });
-                        } else {
-                            // Show the back of the card for others
-                            for (let i = 0; i < 5; i++) {
-                                const cardBack = $('<img>', {
-                                    src: 'back.svg',
-                                    alt: 'Card Back',
-                                    class: 'card'
-                                });
-                                $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardBack);
-                            }
-                        }
-                    });
-                }, 'json');
-            }
-
-            // Reset game on button click
             $('#resetGame').click(function() {
                 if (confirm("Are you sure you want to reset the game? This will delete all drawn cards.")) {
                     $.post('reset_game.php', {}, function(response) {
                         if (response.success) {
                             alert("Game has been reset.");
-                            // Reload the room status
                             $('#table-value').text("");
-
                             $('#messages').text("");
+                            clearAllBoards();
                             checkRoomStatus();
                         } else {
                             alert("Error resetting the game: " + response.error);
@@ -413,11 +440,12 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 }
             });
 
-            // Check room status initially and every 4 seconds
+            // Initial status check
             checkRoomStatus();
             setInterval(checkRoomStatus, 4000);
         });
     </script>
+
 
 </body>
 

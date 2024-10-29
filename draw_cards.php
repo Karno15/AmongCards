@@ -41,31 +41,45 @@ function drawCards($participants)
 
 // Check if cards are already drawn
 if (!isset($rooms[$code]['cards'])) {
+    // Ensure participants are available
+    if (!isset($rooms[$code]['participants']) || empty($rooms[$code]['participants'])) {
+        echo json_encode(['error' => 'No participants available to draw cards.']);
+        exit;
+    }
+
     $participants = $rooms[$code]['participants'];
     $cards = drawCards($participants);
 
     // Save drawn cards to the room's data
-    foreach ($participants as $participant) {
+    foreach ($participants as $index => $participant) {
         $rooms[$code]['cards'][$participant] = $cards[$participant];
     }
 
-    // Set the drawn flag to true
+    // Set drawn flag to true
     $rooms[$code]['drawn'] = true;
 
-    // Set a random "table" flag (either "k", "q", or "a")
+    // Set a random table flag
     $tableOptions = ['k', 'q', 'a'];
     $rooms[$code]['table'] = $tableOptions[array_rand($tableOptions)];
 
-    // Set a random player to start the turn
-    $randomTurnIndex = array_rand($participants);
-    $rooms[$code]['current_turn'] = $participants[$randomTurnIndex];
-    $rooms[$code]['message'] = "It's " . $rooms[$code]['current_turn'] . "'s turn.";
+    // Assign numbers to participants and select a random starting turn
+    $playerNumber = rand(1, count($participants));
+    $rooms[$code]['current_turn'] = $playerNumber;
+
+    // Set the message for the current turn based on the player number and nickname
+    $nickname = $participants[$playerNumber - 1];
+    $rooms[$code]['message'] = "It's $nickname's turn.";
 
     // Update the rooms.json file
-    file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
+    if (file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT)) === false) {
+        echo json_encode(['error' => 'Failed to save card data.']);
+        exit;
+    }
 }
 
-$_SESSION['table'] = $rooms[$code]['table'];
+// Ensure that session data is set even if it's not drawn
+$_SESSION['table'] = $rooms[$code]['table'] ?? null; // Use null if not set
+$_SESSION['current_turn'] = $rooms[$code]['current_turn'] ?? null; // Use null if not set
 
 // Prepare the response data
 $responseData = [];
@@ -75,9 +89,11 @@ foreach ($rooms[$code]['participants'] as $participant) {
     }
 }
 
-// Return the cards, the "table" value, and the initial turn message
+// Return the cards, "table" value, and turn message
 echo json_encode([
     'participants' => $responseData,
-    'table' => $rooms[$code]['table'],
-    'message' => $rooms[$code]['message']
+    'table' => $rooms[$code]['table'] ?? null, // Return null if not set
+    'message' => $rooms[$code]['message'] ?? null, // Return null if not set
+    'current_turn' => $rooms[$code]['current_turn'] ?? null // Return null if not set
 ]);
+?>

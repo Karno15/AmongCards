@@ -8,31 +8,28 @@ if (file_exists($roomsFile)) {
     $rooms = json_decode(file_get_contents($roomsFile), true) ?? [];
 }
 
+$response = [
+    'exists' => false,
+    'message' => 'No room code in session.',
+];
+
 if (isset($_SESSION['room_code'])) {
     $code = $_SESSION['room_code'];
 
     if (isset($rooms[$code])) {
-        $host = $rooms[$code]['host'];
-        $participants = $rooms[$code]['participants'];
-        $drawn = $rooms[$code]['drawn'] ?? false; // Get the drawn flag, default to false if not set
-        
         $response = [
             'exists' => true,
-            'host' => htmlspecialchars($host),
-            'participants' => array_map('htmlspecialchars', $participants),
-            'drawn' => $drawn, // Include the drawn flag in the response
+            'host' => $rooms[$code]['host'] ?? '',
+            'participants' => $rooms[$code]['participants'] ?? [],
+            'drawn' => $rooms[$code]['drawn'] ?? false,
+            'current_turn' => $rooms[$code]['current_turn'] ?? null,
+            'message' => $rooms[$code]['message'] ?? '',
+            'cards' => $rooms[$code]['cards'] ?? [],
+            'table' => $rooms[$code]['table'] ?? '',
         ];
     } else {
-        $response = [
-            'exists' => false,
-            'message' => 'Room does not exist.',
-        ];
+        $response['message'] = 'Room does not exist.';
     }
-} else {
-    $response = [
-        'exists' => false,
-        'message' => 'No room code in session.',
-    ];
 }
 
 header('Content-Type: application/json');
