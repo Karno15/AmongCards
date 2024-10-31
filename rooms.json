@@ -1,0 +1,26 @@
+{
+    "1234": {
+        "host": "Karno",
+        "participants": [
+            "Karno",
+            "test"
+        ],
+        "drawn": true,
+        "table": "a",
+        "current_turn": 1,
+        "message": "It's Karno's turn.",
+        "cards": {
+            "Karno": [
+                "k",
+                "q",
+                "a"
+            ],
+            "test": []
+        },
+        "last_cards": [
+            "k",
+            "q",
+            "k"
+        ]
+    }
+}

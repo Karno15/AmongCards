@@ -25,11 +25,11 @@ if (isset($_POST['exit']) && isset($_SESSION['room_code'], $_SESSION['nickname']
         // Save the updated room data to the file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
     }
-    
+
     // Clear the session for the user who exited
     session_unset();
     session_destroy();
-    
+
     // Redirect back to the main page with an informational message
     header("Location: index.php?info=" . urlencode($info)); // Use urlencode to safely pass the message
     exit;
@@ -80,7 +80,8 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     $_SESSION['nickname'] = $nick;
 } else {
     echo "No data received.";
-    exit;
+    $info = 'No access';
+    header("Location: index.php?info=" . $info);
 }
 
 ?>
@@ -180,6 +181,12 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             width: 3.23vw;
         }
 
+        .card.selected {
+            border: 2px solid blue;
+            transform: translateY(-10px);
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
         .card:hover {
             outline: 2px solid yellow;
         }
@@ -227,8 +234,8 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
 
         </form>
         <?php if ($_SESSION['nickname'] === $rooms[$code]['host']): ?>
-            <button id="drawCards">Draw Cards</button>
-            <button id="resetGame">Reset Game</button>
+            <button id="drawCards" disabled>Draw Cards</button>
+            <button id="resetGame" disabled>Reset Game</button>
         <?php endif; ?>
     </div>
 
@@ -270,13 +277,13 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 message: '',
                 cards: {},
                 participants: [],
-                table_cards: [], // Track table cards
-                table_status: '' // Track table status
+                table_cards: [],
+                table_status: ''
             };
 
             function checkRoomStatus() {
                 $.get('check_room.php', function(response) {
-                    if (response.exists) {
+                    if (response.message != 'Room does not exist.') {
                         $('#host-display').text(response.host);
 
                         const currentParticipants = response.participants;
@@ -288,43 +295,45 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                             }
                         });
 
+                        // Check if there are at least 2 players to enable buttons
+                        if (currentParticipants.length >= 2) {
+                            $('#drawCards').prop('disabled', false);
+                            $('#resetGame').prop('disabled', false);
+                        } else {
+                            $('#drawCards').prop('disabled', true);
+                            $('#resetGame').prop('disabled', true);
+                        }
+
                         // Compare current state with previous state
                         const hasTurnChanged = previousState.current_turn !== response.current_turn;
                         const hasMessageChanged = previousState.message !== response.message;
                         const hasCardsChanged = JSON.stringify(previousState.cards) !== JSON.stringify(response.cards);
-                        const hasTableStatusChanged = previousState.table_status !== response.table; // Corrected line for table status
+                        const hasTableStatusChanged = previousState.table_status !== response.table;
 
-                        // Update current turn, message, and table status if they have changed
                         if (hasTurnChanged || hasMessageChanged || hasCardsChanged || hasTableStatusChanged) {
                             if (hasTurnChanged) {
                                 previousState.current_turn = response.current_turn;
-
                                 if (response.current_turn) {
-                                    highlightCurrentTurn(response.current_turn); // Highlight the current player
+                                    highlightCurrentTurn(response.current_turn);
                                 } else {
-                                    clearHighlights(); // Clear highlights if no current turn
+                                    clearHighlights();
                                 }
                             }
 
                             if (hasMessageChanged) {
                                 $('#messages').text(response.message);
-                                previousState.message = response.message; // Update previous state
+                                previousState.message = response.message;
                             }
 
-                            // Update cards for all participants if they have changed
                             if (hasCardsChanged) {
-                                // Clear previous cards
                                 clearAllCards();
-
-                                // Update the participant cards
                                 updateParticipantCards(response.cards, response.current_turn);
-                                previousState.cards = response.cards; // Update previous state
+                                previousState.cards = response.cards;
                             }
 
-                            // Update table status if it has changed
                             if (hasTableStatusChanged) {
-                                updateTableStatus(response.table); // Use response.table to update the status
-                                previousState.table_status = response.table; // Update previous state
+                                updateTableStatus(response.table);
+                                previousState.table_status = response.table;
                             }
                         }
                     } else {
@@ -336,23 +345,23 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             }
 
             function clearAllCards() {
-                $('.participantSquare').empty(); // Clear all player cards
+                $('.participantSquare').empty();
             }
 
             function clearAllBoards() {
-                clearAllCards(); // Clear cards
-                $('#messages').empty(); // Clear messages
-                clearHighlights(); // Clear highlights
+                clearAllCards();
+                $('#messages').empty();
+                clearHighlights();
             }
 
             function clearHighlights() {
-                $('.player').removeClass('highlight'); // Clear all player highlights
+                $('.player').removeClass('highlight');
             }
 
             function highlightCurrentTurn(currentTurn) {
-                clearHighlights(); // Clear previous highlights
+                clearHighlights();
                 if (currentTurn) {
-                    $('.player' + currentTurn).addClass('highlight'); // Highlight the current player based on the turn number
+                    $('.player' + currentTurn).addClass('highlight');
                 }
             }
 
@@ -367,19 +376,38 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         }
                     });
 
-                    // Clear previous cards for this player
-                    $('.player' + (playerPosition + 1) + ' .participantSquare').empty();
+                    const participantSquare = $('.player' + (playerPosition + 1) + ' .participantSquare');
+                    participantSquare.empty();
 
                     if (participant === currentUser) {
-                        // Show actual cards for the current user
+                        // Add actual cards for the current user with clickable selection effect
                         $.each(cardList, function(i, card) {
                             const cardImage = $('<img>', {
                                 src: card + ".svg",
                                 alt: 'Card',
                                 class: 'card'
                             });
-                            $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardImage);
+
+                            // Click to toggle selection
+                            cardImage.click(function() {
+                                // Toggle 'selected' class
+                                $(this).toggleClass('selected');
+                                // Update PUT button state
+                                updatePutButtonState();
+                            });
+
+                            participantSquare.append(cardImage);
                         });
+
+                        // Add PUT button for the current player
+                        const putButton = $('<button>', {
+                            text: 'PUT',
+                            id: 'putButton',
+                            disabled: true, // Initially disabled
+                            click: handlePutButtonClick // Add event handler
+                        });
+                        participantSquare.append(putButton);
+
                     } else {
                         // Show card backs for other participants
                         for (let i = 0; i < cardList.length; i++) {
@@ -388,17 +416,46 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                                 alt: 'Card Back',
                                 class: 'card'
                             });
-                            $('.player' + (playerPosition + 1) + ' .participantSquare').append(cardBack);
+                            participantSquare.append(cardBack);
                         }
                     }
                 });
             }
 
-            // Function to update table status display
-            function updateTableStatus(tableStatus) {
-                const tableValueDisplay = $('#table-value'); // Update the table status
-                tableValueDisplay.text(tableStatus); // Set the text to the current table status (King, Ace, Queen)
+            function updatePutButtonState() {
+                const selectedCards = $('.card.selected');
+                $('#putButton').prop('disabled', selectedCards.length === 0 || selectedCards.length > 3);
             }
+
+            function handlePutButtonClick() {
+                // Collect selected cards
+                const selectedCards = $('.card.selected').map(function() {
+                    return $(this).attr('src').replace(".svg", "");
+                }).get();
+
+                const currentUser = '<?php echo htmlspecialchars($nick); ?>';
+
+                // AJAX request to put_cards.php
+                $.post('put_cards.php', {
+                    current_player: currentUser,
+                    cards: selectedCards
+                }, function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        checkRoomStatus(); // Refresh room status to update UI
+                    } else {
+                        alert(response.error || 'An error occurred while putting cards.');
+                    }
+                }, 'json').fail(function() {
+                    alert("Error communicating with the server.");
+                });
+            }
+
+
+            function updateTableStatus(tableStatus) {
+                $('#table-value').text(tableStatus);
+            }
+
             $('#drawCards').click(function() {
                 $.post('draw_cards.php', {}, function(data) {
                     clearAllBoards();
@@ -413,13 +470,11 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         $('#messages').text(data.message);
                     }
 
-                    // Load cards for participants
                     updateParticipantCards(data.cards, data.current_turn);
-
-                    // Highlight current turn
                     currentTurnNumber = data.current_turn;
                     highlightCurrentTurn();
                 }, 'json');
+                checkRoomStatus();
             });
 
             $('#resetGame').click(function() {

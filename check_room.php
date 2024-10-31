@@ -18,7 +18,6 @@ if (isset($_SESSION['room_code'])) {
 
     if (isset($rooms[$code])) {
         $response = [
-            'exists' => true,
             'host' => $rooms[$code]['host'] ?? '',
             'participants' => $rooms[$code]['participants'] ?? [],
             'drawn' => $rooms[$code]['drawn'] ?? false,
@@ -26,6 +25,7 @@ if (isset($_SESSION['room_code'])) {
             'message' => $rooms[$code]['message'] ?? '',
             'cards' => $rooms[$code]['cards'] ?? [],
             'table' => $rooms[$code]['table'] ?? '',
+            'last_cards' => $rooms[$code]['last_cards'] ?? ''
         ];
     } else {
         $response['message'] = 'Room does not exist.';
