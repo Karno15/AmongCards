@@ -49,6 +49,7 @@ foreach ($selectedCardCounts as $card => $count) {
     }
 }
 
+$room['last_nickname'] = $nick;
 // Place the cards on the table and remove them from the player's hand
 $room['last_cards'] = $cards; // Update table with chosen cards
 
@@ -62,10 +63,24 @@ foreach ($cards as $card) {
 // Re-index the array to maintain proper order
 $playerCards = array_values($playerCards);
 
+$cardsAmount = array_sum($selectedCardCounts);
+
+switch ($room['table']) {
+    case 'q':
+        $tableName = "Queens";
+        break;
+    case 'k':
+        $tableName = "Kings";
+        break;
+    case 'a':
+        $tableName = "Aces";
+        break;
+}
+
 // Update the message to indicate the next player's turn
 $nextTurn = ($room['current_turn'] % count($room['participants'])) + 1;
 $room['current_turn'] = $nextTurn;
-$room['message'] = "It's " . $room['participants'][$nextTurn - 1] . "'s turn.";
+$room['message'] = "$nick claimed $cardsAmount $tableName.";
 
 // Save changes to the rooms.json file
 file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
@@ -73,4 +88,3 @@ file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
 // Return success response
 echo json_encode(['success' => true, 'message' => 'Cards placed successfully.', 'table' => $cards]);
 exit;
-?>

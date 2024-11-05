@@ -69,7 +69,7 @@ if (!isset($rooms[$code]['cards'])) {
     // Set the message for the current turn based on the player number and nickname
     $nickname = $participants[$playerNumber - 1];
     $rooms[$code]['message'] = "It's $nickname's turn.";
-
+    $rooms[$code]['called'] = false;
     // Update the rooms.json file
     if (file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT)) === false) {
         echo json_encode(['error' => 'Failed to save card data.']);

@@ -1,25 +1,47 @@
 {
     "1234": {
-        "host": "Karno",
+        "host": "test1",
         "participants": [
-            "Karno",
-            "test"
+            "test1",
+            "zxczxc",
+            "zzzz",
+            "aaaa"
         ],
-        "drawn": true,
-        "table": "a",
-        "current_turn": 1,
-        "message": "It's Karno's turn.",
+        "spectators": [
+            "polska"
+        ],
         "cards": {
-            "Karno": [
+            "test1": [
+                "joker",
+                "a",
                 "k",
-                "q",
+                "q"
+            ],
+            "zxczxc": [
+                "a",
                 "a"
             ],
-            "test": []
+            "zzzz": [
+                "q",
+                "k",
+                "k"
+            ],
+            "aaaa": [
+                "q",
+                "q",
+                "q",
+                "k",
+                "joker"
+            ]
         },
+        "drawn": true,
+        "table": "a",
+        "current_turn": 4,
+        "message": "aaaa called zzzz a liar!",
+        "called": true,
+        "last_nickname": "zzzz",
         "last_cards": [
-            "k",
-            "q",
+            "a",
             "k"
         ]
     }

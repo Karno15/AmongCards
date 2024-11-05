@@ -20,12 +20,13 @@ if (isset($_SESSION['room_code'])) {
         $response = [
             'host' => $rooms[$code]['host'] ?? '',
             'participants' => $rooms[$code]['participants'] ?? [],
+            'spectators' => $rooms[$code]['spectators'] ?? [],
             'drawn' => $rooms[$code]['drawn'] ?? false,
             'current_turn' => $rooms[$code]['current_turn'] ?? null,
             'message' => $rooms[$code]['message'] ?? '',
             'cards' => $rooms[$code]['cards'] ?? [],
             'table' => $rooms[$code]['table'] ?? '',
-            'last_cards' => $rooms[$code]['last_cards'] ?? ''
+            'called' => $rooms[$code]['called'] ?? false,
         ];
     } else {
         $response['message'] = 'Room does not exist.';
