@@ -20,6 +20,7 @@ if (isset($_SESSION['room_code'])) {
         unset($rooms[$code]['cards']);
         
         // Set drawn to false
+        $rooms[$code]['called'] = false;
         $rooms[$code]['drawn'] = false;
         $rooms[$code]['message'] = '';
         $rooms[$code]['current_turn'] = '';

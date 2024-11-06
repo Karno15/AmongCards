@@ -3,7 +3,6 @@ session_start();
 
 $roomsFile = 'rooms.json';
 $rooms = file_exists($roomsFile) ? json_decode(file_get_contents($roomsFile), true) ?? [] : [];
-
 // Check if the user has requested to exit and is in a session
 if (isset($_POST['exit']) && isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     $code = $_SESSION['room_code'];
@@ -17,11 +16,11 @@ if (isset($_POST['exit']) && isset($_SESSION['room_code'], $_SESSION['nickname']
         } else {
             // Remove the user from the participants list if they are a participant
             if (in_array($nick, $rooms[$code]['participants'])) {
-                $rooms[$code]['participants'] = array_filter($rooms[$code]['participants'], fn($participant) => $participant !== $nick);
+                $rooms[$code]['participants'] = array_values(array_filter($rooms[$code]['participants'], fn($participant) => $participant !== $nick));
             }
             // Remove the user from the spectators list if they are a spectator
             if (in_array($nick, $rooms[$code]['spectators'])) {
-                $rooms[$code]['spectators'] = array_filter($rooms[$code]['spectators'], fn($spectator) => $spectator !== $nick);
+                $rooms[$code]['spectators'] = array_values(array_filter($rooms[$code]['spectators'], fn($spectator) => $spectator !== $nick));
             }
 
             // Also remove the user's cards if they exist
@@ -41,6 +40,7 @@ if (isset($_POST['exit']) && isset($_SESSION['room_code'], $_SESSION['nickname']
     header("Location: index.php?info=" . urlencode($info)); // Use urlencode to safely pass the message
     exit;
 }
+
 
 if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
     $code = $_SESSION['room_code'];
@@ -266,7 +266,7 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             <button id="drawCards" disabled>Draw Cards</button>
             <button id="resetGame" disabled>Reset Game</button>
         <?php endif; ?>
-        <button id="join" disabled>Join game</button>
+        <button id="joinGame" disabled>Join game</button>
         <h3>Spectators:</h3>
         <div id="spectators"></div>
     </div>
@@ -298,7 +298,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
         </div>
     </div>
 
-    <!-- Button to Draw Cards -->
     <script>
         $(document).ready(function() {
             let currentTurnNumber = 0;
@@ -311,8 +310,11 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 participants: [],
                 table_cards: [],
                 table_status: '',
-                spectators: [] // Add this line
+                spectators: []
             };
+
+            // Flag to prevent multiple resets
+            let isResetting = false;
 
             function checkRoomStatus() {
                 $.get('check_room.php', function(response) {
@@ -320,33 +322,40 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         $('#host-display').text(response.host);
 
                         const currentParticipants = response.participants;
-                        const currentSpectators = response.spectators; // Get current spectators
+                        const currentSpectators = response.spectators;
 
-                        // Clear previous participant displays
                         $('.nickname').text('');
 
                         // Loop through each participant using their keys
                         $.each(currentParticipants, function(index, nickname) {
-                            // Update the corresponding participant slot if available
                             const nicknameSlot = $('.nickname').eq(index);
                             if (nicknameSlot.length) {
                                 nicknameSlot.text(nickname);
                             }
                         });
 
-                        // Update spectators display
                         updateSpectators(currentSpectators);
 
-                        // Check if there are at least 2 players to enable buttons
+                        // Enable/disable buttons based on participants count
                         if (Object.keys(currentParticipants).length >= 2) {
-                            $('#drawCards').prop('disabled', false);
                             $('#resetGame').prop('disabled', false);
                         } else {
-                            $('#drawCards').prop('disabled', true);
                             $('#resetGame').prop('disabled', true);
                         }
 
-                        // Compare current state with previous state
+                        // Disable "Draw Cards" button if cards have been drawn
+                        if (response.drawn) {
+                            $('#drawCards').prop('disabled', true);
+                        } else {
+                            $('#drawCards').prop('disabled', false);
+                        }
+
+                        // If response.called is true, wait 2 seconds, then reveal last cards from reveal.php
+                        if (response.called) {
+                            setTimeout(revealLastCards, 2000);
+                        }
+
+                        // Compare state to decide on updates
                         const hasTurnChanged = previousState.current_turn !== response.current_turn;
                         const hasMessageChanged = previousState.message !== response.message;
                         const hasCardsChanged = JSON.stringify(previousState.cards) !== JSON.stringify(response.cards);
@@ -369,6 +378,7 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
 
                             if (hasCardsChanged) {
                                 clearAllCards();
+                                $('#deck').find('img:not([src="back.svg"])').remove();
                                 updateParticipantCards(response.cards, response.current_turn);
                                 previousState.cards = response.cards;
                             }
@@ -377,6 +387,21 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                                 updateTableStatus(response.table);
                                 previousState.table_status = response.table;
                             }
+
+                        }
+                        const currentUser = '<?php echo htmlspecialchars($nick); ?>';
+
+                        // Enable "Join Game" button if current user is a spectator, not a participant,
+                        // participants count is between 1 and 3, and "drawn" flag is false
+                        if (currentSpectators.includes(currentUser) &&
+                            !Object.values(currentParticipants).includes(currentUser) &&
+                            Object.keys(currentParticipants).length >= 1 &&
+                            Object.keys(currentParticipants).length <= 3 &&
+                            response.drawn === false) {
+                            $('#joinGame').show();
+                            $('#joinGame').prop('disabled', false); // Show the Join Game button if conditions are met
+                        } else {
+                            $('#joinGame').hide(); // Hide the Join Game button otherwise
                         }
                     } else {
                         window.location.href = 'index.php';
@@ -387,10 +412,9 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             }
 
             function updateSpectators(spectators) {
-                $('#spectators').empty(); // Clear the existing spectators list
+                $('#spectators').empty();
                 if (spectators.length > 0) {
                     $.each(spectators, function(index, spectator) {
-                        console.log(spectator);
                         $('#spectators').append('<div>' + spectator + '</div>');
                     });
                 } else {
@@ -398,16 +422,8 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 }
             }
 
-
-
             function clearAllCards() {
                 $('.participantSquare').empty();
-            }
-
-            function clearAllBoards() {
-                clearAllCards();
-                $('#messages').empty();
-                clearHighlights();
             }
 
             function clearHighlights() {
@@ -438,7 +454,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                     if (participant === currentUser) {
                         const isUserTurn = currentTurn === playerPosition + 1;
 
-                        // Add actual cards for the current user with clickable selection effect
                         $.each(cardList, function(i, card) {
                             const cardImage = $('<img>', {
                                 src: card + ".svg",
@@ -446,7 +461,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                                 class: 'card'
                             });
 
-                            // Click to toggle selection only if it's the user's turn
                             cardImage.click(function() {
                                 if (isUserTurn) {
                                     $(this).toggleClass('selected');
@@ -457,29 +471,23 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                             participantSquare.append(cardImage);
                         });
 
-                        // Create a container div for the buttons
                         const buttonContainer = $('<div>', {
                             class: 'button-container'
                         });
-
-                        // Add PUT and CALL buttons for the current player
                         const putButton = $('<button>', {
                             text: 'PUT',
                             id: 'putButton',
-                            click: handlePutButtonClick // Add event handler
+                            click: handlePutButtonClick
                         });
-
                         const callButton = $('<button>', {
                             text: 'CALL',
                             id: 'callButton',
-                            click: handleCallButtonClick // Add event handler for CALL button
+                            click: handleCallButtonClick
                         });
 
-                        // Append buttons to the button container and the container to the participantSquare
                         buttonContainer.append(putButton, callButton);
                         participantSquare.append(buttonContainer);
 
-                        // Show or hide buttons based on the user's turn
                         if (isUserTurn) {
                             putButton.show();
                             callButton.show();
@@ -490,7 +498,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         }
 
                     } else {
-                        // Show card backs for other participants
                         for (let i = 0; i < cardList.length; i++) {
                             const cardBack = $('<img>', {
                                 src: 'back.svg',
@@ -512,27 +519,24 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 });
             }
 
-            // Function to enable/disable PUT button based on selected cards
             function updatePutButtonState() {
                 const selectedCards = $('.card.selected');
                 $('#putButton').prop('disabled', (selectedCards.length === 0 || selectedCards.length > 3));
             }
 
             function handlePutButtonClick() {
-                // Collect selected cards
                 const selectedCards = $('.card.selected').map(function() {
                     return $(this).attr('src').replace(".svg", "");
                 }).get();
 
                 const currentUser = '<?php echo htmlspecialchars($nick); ?>';
 
-                // AJAX request to put_cards.php
                 $.post('put_cards.php', {
                     current_player: currentUser,
                     cards: selectedCards
                 }, function(response) {
                     if (response.success) {
-                        checkRoomStatus(); // Refresh room status to update UI
+                        checkRoomStatus();
                     } else {
                         alert(response.error || 'An error occurred while putting cards.');
                     }
@@ -541,24 +545,65 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 });
             }
 
+            function revealLastCards() {
+                $.get('reveal.php', function(response) {
+                    // Ensure response is treated as JSON
+                    if (typeof response === "string") {
+                        response = JSON.parse(response); // Parse response if it's in string format
+                    }
 
-            function updateTableStatus(tableStatus) {
-                $('#table-value').text(tableStatus);
+                    // Check if last_cards exists and is an array
+                    if (response.last_cards && Array.isArray(response.last_cards)) {
+                        // Clear any existing cards in #deck except for the card back image
+                        $('#deck').find('img:not([src="back.svg"])').remove();
+
+                        // Append each of the last cards to the #deck div
+                        response.last_cards.forEach(function(card) {
+                            const cardImage = $('<img>', {
+                                src: card + ".svg",
+                                alt: 'Card',
+                                class: 'card'
+                            });
+                            $('#deck').append(cardImage);
+                        });
+                        // Set a timeout to reset the game after 5 seconds, but only if the current player is the host
+                        const currentPlayer = '<?php echo htmlspecialchars($nick); ?>'; // Replace with the variable holding the current player
+                        const hostPlayer = response.host; // Replace with response.host or however the host info is accessed
+
+                        if (currentPlayer === hostPlayer) {
+                            // Only reset if not already resetting
+                            if (!isResetting) {
+                                isResetting = true; // Set the flag to true
+                                setTimeout(function() {
+                                    resetGame(); // Call resetGame after 5 seconds
+                                }, 5000); // 5000 milliseconds = 5 seconds
+                            }
+                        }
+
+                    } else {
+                        console.error("Error: last_cards is missing or not an array.");
+                    }
+                }, 'json').fail(function() {
+                    console.error("Error retrieving last cards from reveal.php.");
+                });
             }
 
             function resetGame() {
                 $.post('reset_game.php', {}, function(response) {
+                    isResetting = false; // Reset the flag once the reset is complete
                     if (response.success) {
-                        alert("Game has been reset.");
                         $('#table-value').text("");
                         $('#messages').text("");
                         clearAllBoards();
                         checkRoomStatus();
+                        $('#deck').find('img:not([src="back.svg"])').remove();
+
                     } else {
                         alert("Error resetting the game: " + response.error);
                     }
                 }, 'json').fail(function() {
                     alert("Error communicating with the server.");
+                    isResetting = false; // Reset the flag on failure too
                 });
             }
 
@@ -586,16 +631,50 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 checkRoomStatus();
             }
 
+            function updateTableStatus(tableStatus) {
+                $('#table-value').text(tableStatus);
+            }
+
+            function clearAllBoards() {
+                clearAllCards();
+                $('#messages').empty();
+                clearHighlights();
+            }
+
             $('#drawCards').click(function() {
                 drawCards();
             });
 
             $('#resetGame').click(function() {
                 if (confirm("Are you sure you want to reset the game? This will delete all drawn cards.")) {
-                    resetGame();
+                    if (!isResetting) { // Check if not already resetting
+                        resetGame();
+                    }
                 }
             });
-            // Initial status check
+
+            // Handle "Join Game" button click
+            $('#joinGame').click(function() {
+                const currentUser = '<?php echo htmlspecialchars($nick); ?>';
+
+                $.post('join_game.php', {
+                    nickname: currentUser
+                }, function(response) {
+                    if (response.success) {
+                        checkRoomStatus(); // Update the status immediately after joining
+                    } else {
+                        alert(response.error || 'An error occurred while joining the game.');
+                    }
+                }, 'json').fail(function() {
+                    alert("Error communicating with the server.");
+                });
+            });
+
+
+            // Initialize "Join Game" button as disabled
+            $('#joinGame').hide();
+
+
             checkRoomStatus();
             setInterval(checkRoomStatus, 4000);
         });
