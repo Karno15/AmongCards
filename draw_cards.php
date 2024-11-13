@@ -50,14 +50,17 @@ if (!isset($rooms[$code]['cards'])) {
     $participants = $rooms[$code]['participants'];
     $cards = drawCards($participants);
 
-    // Save drawn cards to the room's data
-    foreach ($participants as $index => $participant) {
-        $rooms[$code]['cards'][$participant] = $cards[$participant];
+    // Initialize shots for each participant if it hasn't been set
+    foreach ($participants as $participant) {
+        if (!isset($rooms[$code]['shots'][$participant])) {
+            $rooms[$code]['shots'][$participant] = 0; // Initialize shots to zero
+        }
+        $rooms[$code]['cards'][$participant] = $cards[$participant]; // Assign drawn cards
     }
 
     // Set drawn flag to true
     $rooms[$code]['drawn'] = true;
-
+    $rooms[$code]['shoot'] = false;
     // Set a random table flag
     $tableOptions = ['k', 'q', 'a'];
     $rooms[$code]['table'] = $tableOptions[array_rand($tableOptions)];
@@ -70,6 +73,7 @@ if (!isset($rooms[$code]['cards'])) {
     $nickname = $participants[$playerNumber - 1];
     $rooms[$code]['message'] = "It's $nickname's turn.";
     $rooms[$code]['called'] = false;
+
     // Update the rooms.json file
     if (file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT)) === false) {
         echo json_encode(['error' => 'Failed to save card data.']);
@@ -81,15 +85,18 @@ if (!isset($rooms[$code]['cards'])) {
 $_SESSION['table'] = $rooms[$code]['table'] ?? null; // Use null if not set
 $_SESSION['current_turn'] = $rooms[$code]['current_turn'] ?? null; // Use null if not set
 
-// Prepare the response data
+// Prepare the response data including shots count for each participant
 $responseData = [];
 foreach ($rooms[$code]['participants'] as $participant) {
     if (isset($rooms[$code]['cards'][$participant])) {
-        $responseData[$participant] = $rooms[$code]['cards'][$participant];
+        $responseData[$participant] = [
+            'cards' => $rooms[$code]['cards'][$participant],
+            'shots' => $rooms[$code]['shots'][$participant] // Include shots count
+        ];
     }
 }
 
-// Return the cards, "table" value, and turn message
+// Return the cards, "table" value, turn message, and shots count
 echo json_encode([
     'participants' => $responseData,
     'table' => $rooms[$code]['table'] ?? null, // Return null if not set

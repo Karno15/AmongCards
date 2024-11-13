@@ -1,1 +1,23 @@
-[]
+{
+    "1234": {
+        "host": "Karno",
+        "participants": [
+            "Karno",
+            "test1"
+        ],
+        "spectators": [],
+        "shots": {
+            "Karno": 6,
+            "test1": 0
+        },
+        "drawn": false,
+        "table": "",
+        "current_turn": "",
+        "message": "",
+        "called": false,
+        "last_nickname": "Karno",
+        "last_cards": [
+            "k"
+        ]
+    }
+}

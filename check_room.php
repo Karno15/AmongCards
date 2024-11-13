@@ -27,6 +27,7 @@ if (isset($_SESSION['room_code'])) {
             'cards' => $rooms[$code]['cards'] ?? [],
             'table' => $rooms[$code]['table'] ?? '',
             'called' => $rooms[$code]['called'] ?? false,
+            'shots' => $rooms[$code]['shots'] ?? [],
         ];
     } else {
         $response['message'] = 'Room does not exist.';

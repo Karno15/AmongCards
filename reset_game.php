@@ -18,13 +18,14 @@ if (isset($_SESSION['room_code'])) {
     if (isset($rooms[$code])) {
         // Remove the cards object entirely
         unset($rooms[$code]['cards']);
-        
+
         // Set drawn to false
         $rooms[$code]['called'] = false;
         $rooms[$code]['drawn'] = false;
         $rooms[$code]['message'] = '';
         $rooms[$code]['current_turn'] = '';
         $rooms[$code]['table'] = '';
+        $rooms[$code]['shoot'] = false;
         // Save the updated rooms data back to the file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
         $_SESSION['table'] = '';
@@ -47,4 +48,3 @@ if (isset($_SESSION['room_code'])) {
 
 header('Content-Type: application/json');
 echo json_encode($response);
-?>
