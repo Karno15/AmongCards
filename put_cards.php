@@ -31,7 +31,7 @@ if (!isset($rooms[$code])) {
 $room = &$rooms[$code];
 
 // Verify that it is the current player's turn
-if ($room['current_turn'] !== array_search($nick, $room['participants']) + 1) {
+if ($room['current_turn'] !== (array_search($nick, $room['participants']) + 1)) {
     echo json_encode(['error' => 'Not your turn.']);
     exit;
 }

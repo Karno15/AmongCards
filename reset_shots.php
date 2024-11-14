@@ -16,23 +16,20 @@ if (isset($_SESSION['room_code'])) {
 
     // Check if the room exists
     if (isset($rooms[$code])) {
-        // Remove the cards object entirely
-        unset($rooms[$code]['cards']);
 
-        // Set drawn to false
-        $rooms[$code]['called'] = false;
-        $rooms[$code]['drawn'] = false;
-        $rooms[$code]['message'] = '';
-        $rooms[$code]['current_turn'] = '';
-        $rooms[$code]['table'] = '';
-        $rooms[$code]['shooting'] = false;
-        $rooms[$code]['last_cards'] = [];
+
+        $participants = $rooms[$code]['participants'];
+        foreach ($participants as $participant) {
+                $rooms[$code]['shots'][$participant] = 0;
+        }
+
+
         // Save the updated rooms data back to the file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
         $_SESSION['table'] = '';
         $response = [
             'success' => true,
-            'message' => 'Game reset successfully.',
+            'message' => 'Shots reset successfully.',
         ];
     } else {
         $response = [

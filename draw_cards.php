@@ -58,9 +58,10 @@ if (!isset($rooms[$code]['cards'])) {
         $rooms[$code]['cards'][$participant] = $cards[$participant]; // Assign drawn cards
     }
 
+    $rooms[$code]['new_game'] = false;
     // Set drawn flag to true
     $rooms[$code]['drawn'] = true;
-    $rooms[$code]['shoot'] = false;
+    $rooms[$code]['shooting'] = false;
     // Set a random table flag
     $tableOptions = ['k', 'q', 'a'];
     $rooms[$code]['table'] = $tableOptions[array_rand($tableOptions)];

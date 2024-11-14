@@ -263,8 +263,9 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
 
         </form>
         <?php if ($_SESSION['nickname'] === $rooms[$code]['host']): ?>
-            <button id="drawCards" disabled>Draw Cards</button>
             <button id="resetGame" disabled>Reset Game</button>
+            <button id="resetShots">Reset Shots</button><br>
+            <button id="drawCards" disabled>Draw Cards</button>
         <?php endif; ?>
         <button id="joinGame" disabled>Join game</button>
         <h3>Spectators:</h3>
@@ -350,16 +351,15 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         // Enable/disable buttons based on participants count
                         if (Object.keys(currentParticipants).length >= 2) {
                             $('#resetGame').prop('disabled', false);
+                            $('#drawCards').prop('disabled', response.drawn);
                         } else {
                             $('#resetGame').prop('disabled', true);
+                            $('#drawCards').prop('disabled', true);
                         }
-
-                        // Disable "Draw Cards" button if cards have been drawn
-                        $('#drawCards').prop('disabled', response.drawn);
 
                         // Handle card reveal when "called"
                         if (response.called) {
-                            setTimeout(revealLastCards, 2000);
+                            setTimeout(revealLastCards, 3000);
                         }
 
                         // Compare state to decide on updates
@@ -396,14 +396,40 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                             }
                         }
 
-                        const currentUser = '<?php echo htmlspecialchars($nick); ?>';
+                        const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Replace with the variable holding the current player
+                        const hostPlayer = response.host; // Replace with response.host or however the host info is accessed
+
+
+                        if (currentUser === hostPlayer && response.shooting) {
+                            if (!isShooting) {
+                                isShooting = true;
+                                const lastCards = response.last_cards;
+                                let shot;
+                                const calledPlayer = response.last_nickname;
+                                const callingPlayer = currentParticipants[response.current_turn - 1];
+                                const table = response.table;
+                                // Check if all cards in lastCards are the same as `table` or "joker"
+                                const allMatch = lastCards.every(card => card === table || card === "joker");
+
+                                if (allMatch) {
+                                    // All cards match `table` or are "joker" -> shot goes to calling player
+                                    shot = callingPlayer;
+                                } else {
+                                    // At least one card does not match -> shot goes to called player
+                                    shot = calledPlayer;
+                                }
+                                console.log(shot + ' is shot ' + allMatch);
+                                dead = 0;
+                                shoot(shot, dead);
+                            }
+                        }
 
                         // Enable "Join Game" button if conditions are met
                         if (currentSpectators.includes(currentUser) &&
                             !Object.values(currentParticipants).includes(currentUser) &&
                             Object.keys(currentParticipants).length >= 1 &&
                             Object.keys(currentParticipants).length <= 3 &&
-                            response.drawn === false) {
+                            response.drawn == false && response.new_game == true) {
                             $('#joinGame').show().prop('disabled', false);
                         } else {
                             $('#joinGame').hide();
@@ -490,7 +516,7 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                             click: handleCallButtonClick
                         });
 
-                        buttonContainer.append(putButton, callButton);
+                        buttonContainer.append(callButton, putButton);
                         participantSquare.append(buttonContainer);
 
                         if (isUserTurn) {
@@ -556,41 +582,34 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         response = JSON.parse(response); // Parse response if it's in string format
                     }
 
-                    // Check if last_cards exists and is an array
-                    if (response.last_cards && Array.isArray(response.last_cards)) {
-                        // Clear any existing cards in #deck except for the card back image
-                        $('#deck').find('img:not([src="back.svg"])').remove();
+                    if (response.last_cards) {
+                        if (Array.isArray(response.last_cards)) {
+                            // Clear any existing cards in #deck except for the card back image
+                            $('#deck').find('img:not([src="back.svg"])').remove();
 
-                        // Append each of the last cards to the #deck div
-                        response.last_cards.forEach(function(card) {
-                            const cardImage = $('<img>', {
-                                src: card + ".svg",
-                                alt: 'Card',
-                                class: 'card'
+                            // Append each of the last cards to the #deck div
+                            response.last_cards.forEach(function(card) {
+                                const cardImage = $('<img>', {
+                                    src: card + ".svg",
+                                    alt: 'Card',
+                                    class: 'card'
+                                });
+                                $('#deck').append(cardImage);
                             });
-                            $('#deck').append(cardImage);
-                        });
-                        // Set a timeout to reset the game after 5 seconds, but only if the current player is the host
-                        const currentPlayer = '<?php echo htmlspecialchars($nick); ?>'; // Replace with the variable holding the current player
-                        const hostPlayer = response.host; // Replace with response.host or however the host info is accessed
+                            // Set a timeout to reset the game after 5 seconds, but only if the current player is the host
+                            const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Replace with the variable holding the current player
+                            const hostPlayer = response.host; // Replace with response.host or however the host info is accessed
 
-                        if (currentPlayer === hostPlayer) {
-                            if (!isShooting) {
-                                isShooting = true;
-                                nickname = 'Karno';
-                                dead = 0;
-
-                                shoot(nickname, dead); // Call resetGame after 5 seconds
-                            }
-                            // Only reset if not already resetting
-                            if (!isResetting) {
-                                isResetting = true; // Set the flag to true
-                                setTimeout(function() {
-                                    resetGame(); // Call resetGame after 5 seconds
-                                }, 7000); // 5000 milliseconds = 5 seconds
+                            if (currentUser === hostPlayer) {
+                                // Only reset if not already resetting
+                                if (!isResetting) {
+                                    isResetting = true; // Set the flag to true
+                                    setTimeout(function() {
+                                        resetGame(); // Call resetGame after 5 seconds
+                                    }, 9000); // 5000 milliseconds = 5 seconds
+                                }
                             }
                         }
-
                     } else {
                         console.error("Error: last_cards is missing or not an array.");
                     }
@@ -600,19 +619,20 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             }
 
             function shoot(nickname, dead) {
+
                 // Data to send to shoot.php
                 const data = {
                     nickname: nickname,
                     dead: dead
                 };
-                isShooting = true;
                 $.ajax({
                     url: 'shoot.php', // Path to the PHP script handling the action
                     method: 'POST',
                     data: data,
                     success: function(response) {
-                        console.log("Shoot action completed: ", response);
+                        console.log("Shoot action completed");
                         checkRoomStatus();
+                        isShooting = false;
                     },
                     error: function(xhr, status, error) {
                         console.error("Error during shoot action:", error);
@@ -620,6 +640,20 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 });
             }
 
+
+            function resetShots() {
+                $.post('reset_shots.php', {}, function(response) {
+                    isResetting = false; // Reset the flag once the reset is complete
+                    if (response.success) {
+                        checkRoomStatus();
+                    } else {
+                        console.log("Error resetting the shots: " + response.error);
+                    }
+                }, 'json').fail(function() {
+                    alert("Error communicating with the server.");
+                    isResetting = false; // Reset the flag on failure too
+                });
+            }
 
             function resetGame() {
                 $.post('reset_game.php', {}, function(response) {
@@ -679,9 +713,17 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
             });
 
             $('#resetGame').click(function() {
-                if (confirm("Are you sure you want to reset the game? This will delete all drawn cards.")) {
+                if (confirm("Are you sure you want to reset the game?")) {
                     if (!isResetting) { // Check if not already resetting
                         resetGame();
+                    }
+                }
+            });
+
+            $('#resetShots').click(function() {
+                if (confirm("Are you sure you want to reset the shots?")) {
+                    if (!isResetting) { // Check if not already resetting
+                        resetShots();
                     }
                 }
             });

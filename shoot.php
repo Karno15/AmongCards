@@ -21,25 +21,34 @@ if (isset($_POST['nickname']) && isset($_POST['dead'])) {
         $shots = $rooms[$code]['shots'] ?? [];
 
         // Process the shoot action
-        if ($dead === 0) {
+        if (!$dead) {
             // Player is not dead, waste a shot by increasing their shot count
             if (isset($shots[$nickname])) {
                 $shots[$nickname] = min($shots[$nickname] + 1, 6); // Max shots: 6
-                $rooms[$code]['message'] = $nickname.' stayed alive!';
+                $rooms[$code]['message'] = $nickname . ' stayed alive!';
             }
         } else {
-            // Player is dead, move to spectators and remove from participants
-            if (isset($participants[$nickname])) {
+            if (in_array($nickname, $participants)) {
                 // Move the player to spectators
                 $spectators[] = $nickname;
 
-                // Remove from participants
-                unset($participants[$nickname]);
+                // Find the index of $nickname in the participants array and remove it
+                $index = array_search($nickname, $participants);
+                if ($index !== false) {
+                    unset($participants[$index]);
+                }
 
                 // Remove the player's shots and cards
                 unset($shots[$nickname]);
                 unset($rooms[$code]['cards'][$nickname]); // Assuming cards are stored in the room's data
-                $rooms[$code]['message'] = $nickname.' died!';
+                $rooms[$code]['message'] = $nickname . ' died!';
+                $participants = array_values($participants);
+
+                if (count($participants) === 1) {
+                    $remainingParticipant = reset($participants); 
+                    $rooms[$code]['message'] = $remainingParticipant . ' won!';
+                    $rooms[$code]['new_game'] = true;
+                }
             }
         }
 
@@ -47,7 +56,7 @@ if (isset($_POST['nickname']) && isset($_POST['dead'])) {
         $rooms[$code]['participants'] = $participants;
         $rooms[$code]['spectators'] = $spectators;
         $rooms[$code]['shots'] = $shots;
-
+        $rooms[$code]['shooting'] = false;
         // Write the updated data back to the JSON file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
 
@@ -63,4 +72,3 @@ if (isset($_POST['nickname']) && isset($_POST['dead'])) {
 } else {
     echo json_encode(['error' => 'Invalid data']);
 }
-?>

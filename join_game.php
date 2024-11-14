@@ -39,7 +39,7 @@ $rooms[$code]['spectators'] = array_filter($rooms[$code]['spectators'], function
 
 // Add user to participants
 $rooms[$code]['participants'][] = $nick;
-
+$participants = array_values($participants);
 // Save the updated data back to rooms.json
 if (file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT))) {
     echo json_encode(['success' => true, 'message' => 'Successfully joined the game.']);
