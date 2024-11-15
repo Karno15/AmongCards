@@ -95,7 +95,7 @@ $info = isset($_GET['info']) ? $_GET['info'] : '';
         <div id="info"><?php echo htmlspecialchars($info); ?></div>
     <?php endif; ?>
 
-    <h1>Cards</h1>
+    <h1>Cards 1.0</h1>
     <div id="main">
         <div id="joinContainer">
             <form action='joined.php' method='post'>
