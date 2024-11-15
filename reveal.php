@@ -13,7 +13,7 @@ if ($code && isset($rooms[$code])) {
         // Return the last_cards array as JSON
 
         $rooms[$code]['shooting'] = true;
-
+        
         // Save the modified data back to the JSON file
         file_put_contents($roomsFile, json_encode($rooms, JSON_PRETTY_PRINT));
 

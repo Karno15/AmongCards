@@ -1,23 +1,21 @@
 {
-    "1234": {
-        "host": "123ww",
-        "participants": [
-            "123ww",
-            "dsd"
+    "123": {
+        "host": "zxczxc",
+        "participants": [],
+        "spectators": [
+            "zxczxc"
         ],
-        "spectators": [],
         "shots": {
-            "123ww": 6,
-            "dsd": 6
+            "vvvv": 0
         },
-        "new_game": false,
+        "new_game": true,
         "drawn": false,
         "shooting": false,
         "table": "",
         "current_turn": "",
         "message": "",
         "called": false,
-        "last_nickname": "123ww",
+        "last_nickname": "vvvv",
         "last_cards": []
     }
 }

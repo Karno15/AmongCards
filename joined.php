@@ -315,10 +315,11 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 participants: [],
                 table_cards: [],
                 table_status: '',
-                spectators: []
+                spectators: [],
+                last_cards: []
             };
-            let isShooting = false;
             let isResetting = false;
+            let shooting = 0;
 
             function checkRoomStatus() {
                 $.get('check_room.php', function(response) {
@@ -356,12 +357,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                             $('#resetGame').prop('disabled', true);
                             $('#drawCards').prop('disabled', true);
                         }
-
-                        // Handle card reveal when "called"
-                        if (response.called) {
-                            setTimeout(revealLastCards, 3000);
-                        }
-
                         // Compare state to decide on updates
                         const hasTurnChanged = previousState.current_turn !== response.current_turn;
                         const hasMessageChanged = previousState.message !== response.message;
@@ -399,31 +394,63 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Replace with the variable holding the current player
                         const hostPlayer = response.host; // Replace with response.host or however the host info is accessed
 
+                        console.log(shooting + ' shoots');
+                        if (response.last_cards) {
+                            shooting++;
+                            if (Array.isArray(response.last_cards)) {
+                                if (response.last_cards !== previousState.last_cards && shooting == 1) {
 
-                        if (currentUser === hostPlayer && response.shooting) {
-                            if (!isShooting) {
-                                isShooting = true;
-                                const lastCards = response.last_cards;
-                                let shot;
-                                const calledPlayer = response.last_nickname;
-                                const callingPlayer = currentParticipants[response.current_turn - 1];
-                                const table = response.table;
-                                // Check if all cards in lastCards are the same as `table` or "joker"
-                                const allMatch = lastCards.every(card => card === table || card === "joker");
+                                    $('#deck').find('img:not([src="back.svg"])').remove();
 
-                                if (allMatch) {
-                                    // All cards match `table` or are "joker" -> shot goes to calling player
-                                    shot = callingPlayer;
-                                } else {
-                                    // At least one card does not match -> shot goes to called player
-                                    shot = calledPlayer;
+                                    // Append each of the last cards to the #deck div
+                                    response.last_cards.forEach(function(card) {
+                                        const cardImage = $('<img>', {
+                                            src: card + ".svg",
+                                            alt: 'Card',
+                                            class: 'card'
+                                        }).hide(); // Initially hide the image
+                                        $('#deck').append(cardImage);
+                                        cardImage.fadeIn(2000); // Fade in over 2 seconds
+                                    });
+                                    previousState.last_cards = response.last_cards;
                                 }
-                                console.log(shot + ' is shot ' + allMatch);
-                                dead = 0;
-                                shoot(shot, dead);
+
+                                if (currentUser === hostPlayer && shooting == 1) {
+                                    shooting++;
+                                    const lastCards = response.last_cards;
+                                    let shot;
+                                    const calledPlayer = response.last_nickname;
+                                    const callingPlayer = currentParticipants[response.current_turn - 1];
+                                    const table = response.table;
+                                    // Check if all cards in lastCards are the same as `table` or "joker"
+                                    const allMatch = lastCards.every(card => card === table || card === "joker");
+
+                                    if (allMatch) {
+                                        // All cards match `table` or are "joker" -> shot goes to calling player
+                                        shot = callingPlayer;
+                                    } else {
+                                        // At least one card does not match -> shot goes to called player
+                                        shot = calledPlayer;
+                                    }
+
+                                    shotsLeft = 6 - response.shots[shot];
+                                    dead = Math.random() < (1 / shotsLeft) ? 1 : 0;
+
+                                    console.log('chances were ' + (1 / shotsLeft));
+                                    setTimeout(function() {
+                                        shoot(shot, dead);
+                                        console.log(shot + ' is shot ' + allMatch);
+                                    }, 4000);
+                                    // Only reset if not already resetting
+                                    if (!isResetting) {
+                                        isResetting = true; // Set the flag to true
+                                        setTimeout(function() {
+                                            resetGame(); // Call resetGame after 5 seconds
+                                        }, 9000); // 5000 milliseconds = 5 seconds
+                                    }
+                                }
                             }
                         }
-
                         // Enable "Join Game" button if conditions are met
                         if (currentSpectators.includes(currentUser) &&
                             !Object.values(currentParticipants).includes(currentUser) &&
@@ -455,6 +482,7 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
 
             function clearAllCards() {
                 $('.participantSquare').empty();
+                shooting = 0;
             }
 
             function clearHighlights() {
@@ -575,48 +603,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                 });
             }
 
-            function revealLastCards() {
-                $.get('reveal.php', function(response) {
-                    // Ensure response is treated as JSON
-                    if (typeof response === "string") {
-                        response = JSON.parse(response); // Parse response if it's in string format
-                    }
-
-                    if (response.last_cards) {
-                        if (Array.isArray(response.last_cards)) {
-                            // Clear any existing cards in #deck except for the card back image
-                            $('#deck').find('img:not([src="back.svg"])').remove();
-
-                            // Append each of the last cards to the #deck div
-                            response.last_cards.forEach(function(card) {
-                                const cardImage = $('<img>', {
-                                    src: card + ".svg",
-                                    alt: 'Card',
-                                    class: 'card'
-                                });
-                                $('#deck').append(cardImage);
-                            });
-                            // Set a timeout to reset the game after 5 seconds, but only if the current player is the host
-                            const currentUser = '<?php echo htmlspecialchars($nick); ?>'; // Replace with the variable holding the current player
-                            const hostPlayer = response.host; // Replace with response.host or however the host info is accessed
-
-                            if (currentUser === hostPlayer) {
-                                // Only reset if not already resetting
-                                if (!isResetting) {
-                                    isResetting = true; // Set the flag to true
-                                    setTimeout(function() {
-                                        resetGame(); // Call resetGame after 5 seconds
-                                    }, 9000); // 5000 milliseconds = 5 seconds
-                                }
-                            }
-                        }
-                    } else {
-                        console.error("Error: last_cards is missing or not an array.");
-                    }
-                }, 'json').fail(function() {
-                    console.error("Error retrieving last cards from reveal.php.");
-                });
-            }
 
             function shoot(nickname, dead) {
 
@@ -632,7 +618,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                     success: function(response) {
                         console.log("Shoot action completed");
                         checkRoomStatus();
-                        isShooting = false;
                     },
                     error: function(xhr, status, error) {
                         console.error("Error during shoot action:", error);
@@ -664,7 +649,6 @@ if (isset($_SESSION['room_code'], $_SESSION['nickname'])) {
                         clearAllBoards();
                         checkRoomStatus();
                         $('#deck').find('img:not([src="back.svg"])').remove();
-
                     } else {
                         alert("Error resetting the game: " + response.error);
                     }
